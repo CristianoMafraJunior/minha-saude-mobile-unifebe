@@ -188,7 +188,7 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const allContents: (ContentItem | ApiContent)[] = useMemo(
+  const allContents: ContentItem[] = useMemo(
     () =>
       apiContents.length > 0
         ? apiContents.map((c) => ({
