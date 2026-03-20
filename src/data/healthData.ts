@@ -1,4 +1,4 @@
-import { Category, ContentItem } from './types';
+import { Category, ContentItem } from '../types';
 
 export const categories: Category[] = [
   {
