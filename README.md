@@ -91,6 +91,8 @@ npm run ios:sync
 - [https://github.com/LeskeLense](https://github.com/LeskeLense)
 - [https://github.com/Cascaum](https://github.com/Cascaum)
 - [https://github.com/CristianoMafraJunior](https://github.com/CristianoMafraJunior)
+- [https://github.com/yXablau](https://github.com/yXablau)
+- [https://github.com/BrunoBoeckHein](https://github.com/BrunoBoeckHein)
 
 ## 📌 Observações
 - Para desenvolver para iOS, é necessário usar macOS com Xcode instalado.
