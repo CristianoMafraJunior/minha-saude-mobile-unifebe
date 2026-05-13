@@ -68,6 +68,7 @@ export default function App() {
   const [apiContents, setApiContents] = useState<ApiContent[]>([]);
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   const [userForm, setUserForm] = useState({
     name: 'Maria Silva',
@@ -133,6 +134,7 @@ export default function App() {
 
   const handleLogin = async () => {
     if (!userForm.name || !userForm.email) return;
+    setLoginError('');
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -143,6 +145,11 @@ export default function App() {
           avatarUrl: userForm.avatarUrl,
         }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setLoginError(err.error || 'Erro ao entrar. Tente novamente.');
+        return;
+      }
       const data = await res.json();
       setUser(data);
       setIsAuthenticated(true);
@@ -155,6 +162,7 @@ export default function App() {
       }));
     } catch (e) {
       console.error(e);
+      setLoginError('Não foi possível conectar ao servidor. Verifique sua conexão.');
     }
   };
 
@@ -328,6 +336,10 @@ export default function App() {
           >
             Continuar
           </button>
+
+          {loginError && (
+            <p className="text-[11px] text-center text-red-500 font-medium">{loginError}</p>
+          )}
 
           <p className="text-[10px] text-center text-slate-400">
             Ao continuar, você salva seus dados de forma anônima para acompanhar seu ciclo.
