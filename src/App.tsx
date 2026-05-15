@@ -1,16 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Heart, 
-  Sparkles, 
-  Baby, 
-  ClipboardCheck, 
-  Sun, 
-  Brain, 
-  ChevronLeft, 
+import {
+  Heart,
+  Sparkles,
+  Baby,
+  ClipboardCheck,
+  ChevronLeft,
   ChevronRight,
-  Home as HomeIcon,
-  BookOpen,
-  Info,
   ArrowLeft,
   Calendar as CalendarIcon,
   User,
@@ -19,168 +14,92 @@ import {
   Settings,
   BarChart3,
   Droplets,
-  ShieldCheck,
   Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { categories as staticCategories, contentItems as staticContentItems } from './data/healthData';
-import { NavigationState, ScreenType, Category, ContentItem } from './types';
+import { NavigationState, ScreenType } from './types';
 
-// Icon Mapping Helper
 const IconMap: Record<string, any> = {
   Sparkles,
-  Heart,
   Baby,
   ClipboardCheck,
-  Sun,
-  Brain,
   Droplets,
-  ShieldCheck
 };
 
 type TabType = 'hoje' | 'ciclo' | 'conteudos' | 'perfil';
 
-interface ApiUser {
-  id: number;
+const STORAGE_KEY = 'minha-saude-user';
+
+interface UserForm {
   name: string;
   email: string;
-  cycle_length: number | null;
-  period_length: number | null;
-  last_menstruation: string | null;
-  avatar_url: string | null;
-}
-
-interface ApiContent {
-  id: number;
-  category_id: string;
-  title: string;
-  summary: string;
-  text: string;
+  cycleLength: number;
+  periodLength: number;
+  lastMenstruation: string;
+  avatarUrl: string;
 }
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('hoje');
   const [nav, setNav] = useState<NavigationState>({ screen: 'home' });
   const [selectedCategory, setSelectedCategory] = useState<string>('menstruacao');
-  const [user, setUser] = useState<ApiUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [apiContents, setApiContents] = useState<ApiContent[]>([]);
   const [isSavingUser, setIsSavingUser] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [savedOk, setSavedOk] = useState(false);
 
-  const [userForm, setUserForm] = useState({
-    name: 'Maria Silva',
-    email: 'maria.silva@email.com',
+  const [userForm, setUserForm] = useState<UserForm>({
+    name: '',
+    email: '',
     cycleLength: 28,
     periodLength: 5,
-    lastMenstruation: '2023-11-15',
+    lastMenstruation: '',
     avatarUrl: '',
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-
   useEffect(() => {
-    // Carregar usuário atual (se existir)
-    fetch(`${API_URL}/api/user`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data) {
-          setUser(data);
-          setIsAuthenticated(true);
-          setUserForm({
-            name: data.name,
-            email: data.email,
-            cycleLength: data.cycle_length ?? 28,
-            periodLength: data.period_length ?? 5,
-            lastMenstruation: data.last_menstruation ?? '2023-11-15',
-            avatarUrl: data.avatar_url ?? '',
-          });
-        } else {
-          setIsAuthenticated(false);
-        }
-      })
-      .catch(() => {
-        setIsAuthenticated(false);
-      })
-      .finally(() => {
-        setIsCheckingAuth(false);
-      });
-
-    // Carregar conteúdos
-    fetch(`${API_URL}/api/contents`)
-      .then((res) => res.json())
-      .then((data) => setApiContents(data))
-      .catch(() => {});
-  }, [API_URL]);
-
-  const handleSaveUser = async () => {
-    try {
-      setIsSavingUser(true);
-      const res = await fetch(`${API_URL}/api/user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userForm),
-      });
-      const data = await res.json();
-      setUser(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSavingUser(false);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const data: UserForm = JSON.parse(saved);
+        setUserForm(data);
+        setIsAuthenticated(true);
+      } catch {
+        localStorage.removeItem(STORAGE_KEY);
+      }
     }
+    setIsCheckingAuth(false);
+  }, []);
+
+  const handleLogin = () => {
+    if (!userForm.name.trim() || !userForm.email.trim()) {
+      setLoginError('Preencha nome e e-mail para continuar.');
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userForm));
+    setIsAuthenticated(true);
   };
 
-  const handleLogin = async () => {
-    if (!userForm.name || !userForm.email) return;
-    try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: userForm.name,
-          email: userForm.email,
-          avatarUrl: userForm.avatarUrl,
-        }),
-      });
-      const data = await res.json();
-      setUser(data);
-      setIsAuthenticated(true);
-      setUserForm((prev) => ({
-        ...prev,
-        cycleLength: data.cycle_length ?? prev.cycleLength,
-        periodLength: data.period_length ?? prev.periodLength,
-        lastMenstruation: data.last_menstruation ?? prev.lastMenstruation,
-        avatarUrl: data.avatar_url ?? prev.avatarUrl,
-      }));
-    } catch (e) {
-      console.error(e);
-    }
+  const handleSaveUser = () => {
+    setIsSavingUser(true);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userForm));
+    setIsSavingUser(false);
+    setSavedOk(true);
+    setTimeout(() => setSavedOk(false), 2000);
   };
 
-  const handleAvatarChange = async (file: File | null) => {
-    if (!file || !userForm.email) return;
-    try {
-      setIsUploadingAvatar(true);
-      const formData = new FormData();
-      formData.append('avatar', file);
-      formData.append('email', userForm.email);
-
-      const res = await fetch(`${API_URL}/api/user/avatar`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      setUser(data);
-      setUserForm((prev) => ({
-        ...prev,
-        avatarUrl: data.avatar_url ?? prev.avatarUrl,
-      }));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsUploadingAvatar(false);
-    }
+  const handleAvatarChange = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      const updated = { ...userForm, avatarUrl: base64 };
+      setUserForm(updated);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    };
+    reader.readAsDataURL(file);
   };
 
   const navigateTo = (screen: ScreenType, params?: any) => {
@@ -188,62 +107,31 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const allContents: ContentItem[] = useMemo(
-    () =>
-      apiContents.length > 0
-        ? apiContents.map((c) => ({
-            id: String(c.id),
-            categoryId: c.category_id,
-            title: c.title,
-            summary: c.summary,
-            text: c.text,
-            tips: [],
-            references: [],
-          }))
-        : staticContentItems,
-    [apiContents],
-  );
-
   const currentContent = useMemo(
-    () => allContents.find((c) => c.id === nav.params?.contentId),
-    [allContents, nav.params?.contentId],
+    () => staticContentItems.find((c) => c.id === nav.params?.contentId),
+    [nav.params?.contentId],
   );
 
   const filteredContent = useMemo(
-    () => allContents.filter((item) => item.categoryId === selectedCategory),
-    [allContents, selectedCategory],
+    () => staticContentItems.filter((item) => item.categoryId === selectedCategory),
+    [selectedCategory],
   );
 
-  // Calendário dinâmico com mês atual
   const today = new Date();
   const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   const daysInMonth = currentMonthEnd.getDate();
-  const startWeekDay = currentMonthStart.getDay(); // 0 = domingo
+  const startWeekDay = currentMonthStart.getDay();
 
   const monthNames = [
-    'Janeiro',
-    'Fevereiro',
-    'Março',
-    'Abril',
-    'Maio',
-    'Junho',
-    'Julho',
-    'Agosto',
-    'Setembro',
-    'Outubro',
-    'Novembro',
-    'Dezembro',
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
   ];
 
   const calendarCells = useMemo(() => {
     const cells: (number | null)[] = [];
-    for (let i = 0; i < startWeekDay; i++) {
-      cells.push(null);
-    }
-    for (let d = 1; d <= daysInMonth; d++) {
-      cells.push(d);
-    }
+    for (let i = 0; i < startWeekDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
     return cells;
   }, [startWeekDay, daysInMonth]);
 
@@ -256,36 +144,35 @@ export default function App() {
   const nextPeriodLabel = useMemo(() => {
     if (!lastMenstruationDate || !userForm.cycleLength) return '—';
     const next = new Date(lastMenstruationDate);
-    while (next <= today) {
-      next.setDate(next.getDate() + userForm.cycleLength);
-    }
+    while (next <= today) next.setDate(next.getDate() + userForm.cycleLength);
     return next.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  }, [lastMenstruationDate, userForm.cycleLength, today]);
+  }, [lastMenstruationDate, userForm.cycleLength]);
 
   const getDayType = (day: number | null) => {
     if (!day || !lastMenstruationDate || !userForm.cycleLength || !userForm.periodLength) return null;
     const date = new Date(today.getFullYear(), today.getMonth(), day);
-    const diffDays = Math.floor(
-      (date.getTime() - lastMenstruationDate.getTime()) / (1000 * 60 * 60 * 24),
-    );
+    const diffDays = Math.floor((date.getTime() - lastMenstruationDate.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays < 0) return null;
     const cyclePos = diffDays % userForm.cycleLength;
-
-    // Menstruação
     if (cyclePos >= 0 && cyclePos < userForm.periodLength) return 'menstruacao';
-
-    // Ovulação (aprox. 14 dias antes do fim do ciclo)
     const ovulationDay = userForm.cycleLength - 14;
     if (cyclePos === ovulationDay) return 'ovulacao';
-
-    // Janela fértil: 3 dias antes e 2 depois da ovulação
     if (cyclePos >= ovulationDay - 3 && cyclePos <= ovulationDay + 2) return 'fertil';
-
     return null;
   };
 
-  // Tela de login/cadastro (só mostra depois de terminar checagem inicial)
-  if (!isAuthenticated && !isCheckingAuth) {
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#FDF2F8] font-sans text-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <div className="w-10 h-10 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+          <p className="text-xs font-medium">Carregando seus dados...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#FDF2F8] font-sans text-slate-900 flex items-center justify-center px-6">
         <div className="w-full max-w-sm bg-white rounded-[32px] shadow-lg p-8 space-y-6">
@@ -293,9 +180,7 @@ export default function App() {
             <div className="w-14 h-14 bg-pink-500 rounded-full flex items-center justify-center">
               <Heart className="w-7 h-7 text-white fill-white" />
             </div>
-            <h1 className="text-lg font-bold text-slate-800 text-center">
-              Entrar ou criar conta
-            </h1>
+            <h1 className="text-lg font-bold text-slate-800 text-center">Entrar ou criar conta</h1>
             <p className="text-xs text-slate-500 text-center">
               Salve seu calendário menstrual e seus conteúdos favoritos.
             </p>
@@ -322,6 +207,10 @@ export default function App() {
             </div>
           </div>
 
+          {loginError && (
+            <p className="text-xs text-red-500 text-center">{loginError}</p>
+          )}
+
           <button
             onClick={handleLogin}
             className="w-full bg-pink-500 text-white rounded-full py-3 text-sm font-bold shadow-md active:scale-[0.99] transition"
@@ -337,21 +226,8 @@ export default function App() {
     );
   }
 
-  // Enquanto verifica se já existe usuário salvo, mostra uma tela de carregamento
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen bg-[#FDF2F8] font-sans text-slate-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-slate-500">
-          <div className="w-10 h-10 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
-          <p className="text-xs font-medium">Carregando seus dados...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#FDF2F8] font-sans text-slate-900 pb-24">
-      {/* Header */}
       <header className="bg-white/50 px-6 pt-6 pb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center">
@@ -363,7 +239,6 @@ export default function App() {
 
       <main className="px-6 py-4 max-w-md mx-auto">
         <AnimatePresence mode="wait">
-          {/* TAB: HOJE (CALENDÁRIO) */}
           {activeTab === 'hoje' && (
             <motion.div key="hoje" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <div className="flex items-center gap-2 mb-4">
@@ -391,15 +266,10 @@ export default function App() {
                     if (type === 'fertil') bgClass = 'bg-yellow-200 text-yellow-900';
                     if (type === 'ovulacao') bgClass = 'bg-green-200 text-green-900';
                     if (isToday) bgClass = 'bg-pink-500 text-white';
-
                     return (
                       <div key={idx} className="flex justify-center items-center h-8">
                         {d && (
-                          <span
-                            className={`text-sm font-medium w-8 h-8 rounded-full flex items-center justify-center ${
-                              bgClass || 'text-white'
-                            }`}
-                          >
+                          <span className={`text-sm font-medium w-8 h-8 rounded-full flex items-center justify-center ${bgClass || 'text-white'}`}>
                             {d}
                           </span>
                         )}
@@ -434,7 +304,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* TAB: CICLO (CHAT) */}
           {activeTab === 'ciclo' && (
             <motion.div key="ciclo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-[70vh]">
               <div className="flex-1 overflow-y-auto space-y-4 py-4">
@@ -447,9 +316,9 @@ export default function App() {
               </div>
               <div className="mt-auto space-y-4">
                 <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="Digite sua pergunta anônima..." 
+                  <input
+                    type="text"
+                    placeholder="Digite sua pergunta anônima..."
                     className="w-full bg-white border border-slate-100 rounded-full py-4 px-6 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"
                   />
                   <button className="absolute right-2 top-2 w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white">
@@ -463,7 +332,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* TAB: CONTEÚDOS */}
           {activeTab === 'conteudos' && (
             <motion.div key="conteudos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               {nav.screen === 'home' ? (
@@ -492,7 +360,7 @@ export default function App() {
                       <div key={item.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-3">
                         <h4 className="font-bold text-slate-800">{item.title}</h4>
                         <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{item.summary}</p>
-                        <button 
+                        <button
                           onClick={() => navigateTo('content', { contentId: item.id })}
                           className="text-pink-500 text-xs font-bold flex items-center gap-1"
                         >
@@ -526,22 +394,17 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* TAB: PERFIL */}
           {activeTab === 'perfil' && (
             <motion.div key="perfil" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <h2 className="text-2xl font-bold text-purple-300">Meu Perfil</h2>
-              
+
               <div className="flex flex-col items-center space-y-3">
                 <div className="relative">
                   <div
                     className="w-24 h-24 bg-purple-200 rounded-full border-4 border-purple-400 flex items-center justify-center text-[10px] text-purple-600 font-bold overflow-hidden"
                     style={
                       userForm.avatarUrl
-                        ? {
-                            backgroundImage: `url(${API_URL}${userForm.avatarUrl})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }
+                        ? { backgroundImage: `url(${userForm.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                         : undefined
                     }
                   >
@@ -556,11 +419,6 @@ export default function App() {
                       onChange={(e) => handleAvatarChange(e.target.files?.[0] ?? null)}
                     />
                   </label>
-                  {isUploadingAvatar && (
-                    <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] text-slate-500">
-                      Enviando foto...
-                    </span>
-                  )}
                 </div>
                 <div className="text-center">
                   <h3 className="text-lg font-bold text-purple-400">{userForm.name}</h3>
@@ -583,7 +441,7 @@ export default function App() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Última menstruação:</span>
-                    <span className="text-purple-600 font-bold">{userForm.lastMenstruation}</span>
+                    <span className="text-purple-600 font-bold">{userForm.lastMenstruation || '—'}</span>
                   </div>
                 </div>
               </div>
@@ -616,7 +474,7 @@ export default function App() {
 
               <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 space-y-6">
                 <div className="space-y-3">
-                  <p className="text-xs font-bold text-slate-500 uppercase">Editar perfil (salvo no banco)</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase">Editar perfil</p>
                   <div className="space-y-2 text-xs">
                     <input
                       className="w-full border border-slate-200 rounded-xl px-3 py-2"
@@ -659,10 +517,8 @@ export default function App() {
                     >
                       {isSavingUser ? 'Salvando...' : 'Salvar perfil'}
                     </button>
-                    {user && (
-                      <p className="text-[10px] text-emerald-500 mt-1">
-                        Dados carregados do banco para {user.email}
-                      </p>
+                    {savedOk && (
+                      <p className="text-[10px] text-emerald-500 mt-1">Perfil salvo!</p>
                     )}
                   </div>
                 </div>
@@ -690,36 +546,34 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Floating Action Button */}
       <button className="fixed bottom-10 left-1/2 -translate-x-1/2 w-16 h-16 bg-pink-500 rounded-full flex items-center justify-center text-white shadow-lg z-30 border-4 border-white">
         <Plus className="w-8 h-8" />
       </button>
 
-      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-4 py-3 flex justify-between items-center z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
-        <button 
+        <button
           onClick={() => setActiveTab('hoje')}
           className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeTab === 'hoje' ? 'text-pink-500' : 'text-slate-400'}`}
         >
           <CalendarIcon className="w-5 h-5" />
           <span className="text-[10px] font-bold">Hoje</span>
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('ciclo')}
           className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeTab === 'ciclo' ? 'text-pink-500' : 'text-slate-400'}`}
         >
           <Droplets className="w-5 h-5" />
           <span className="text-[10px] font-bold">Ciclo</span>
         </button>
-        <div className="w-16" /> {/* Spacer for FAB */}
-        <button 
+        <div className="w-16" />
+        <button
           onClick={() => { setActiveTab('conteudos'); navigateTo('home'); }}
           className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeTab === 'conteudos' ? 'text-pink-500' : 'text-slate-400'}`}
         >
           <Sparkles className="w-5 h-5" />
           <span className="text-[10px] font-bold">Conteúdos</span>
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('perfil')}
           className={`flex flex-col items-center gap-1 w-16 transition-colors ${activeTab === 'perfil' ? 'text-pink-500' : 'text-slate-400'}`}
         >
